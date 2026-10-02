@@ -549,6 +549,43 @@ describe('actions', function()
     end)
   end)
 
+  for _, autocrlf in ipairs({ 'false', 'true' }) do
+    it('preserves line endings when staging a CRLF selection with autocrlf=' .. autocrlf, function()
+      setup_test_repo()
+      git('config', 'core.autocrlf', autocrlf)
+      write_to_file(test_file, { 'A', 'B', 'C', 'D' }, { newline = '\r\n' })
+      git('add', test_file)
+      git('commit', '-m', 'Use CRLF')
+      exec_lua('vim.g.editorconfig = false')
+      edit(test_file)
+      wait_for_attach()
+      eq('dos', exec_lua('return vim.bo.fileformat'))
+      expect_hunks({})
+
+      set_lines(1, 3, { 'b', 'c' })
+      expect_hunks({ '@@ -2,2 +2,2 @@' })
+      stage_hunk({ 2, 2 })
+
+      local newline = autocrlf == 'true' and '\n' or '\r\n'
+      eq(
+        table.concat({ 'A', 'b', 'C', 'D', '' }, newline),
+        exec_lua(function(root)
+          return vim.system({ 'git', '-C', root, 'show', ':dummy.txt' }):wait().stdout
+        end, scratch)
+      )
+      expect_hunks({ '@@ -3,1 +3,1 @@' })
+
+      stage_hunk({ 2, 2 })
+      eq(
+        table.concat({ 'A', 'B', 'C', 'D', '' }, newline),
+        exec_lua(function(root)
+          return vim.system({ 'git', '-C', root, 'show', ':dummy.txt' }):wait().stdout
+        end, scratch)
+      )
+      expect_hunks({ '@@ -2,2 +2,2 @@' })
+    end)
+  end
+
   describe('staging partial hunks', function()
     before_each(function()
       setup_test_repo({ test_file_text = { 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H' } })

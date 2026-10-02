@@ -380,7 +380,11 @@ function CacheEntry:get_hunk(range, greedy, staged)
       hunk.removed.start + hunk.removed.count - 1
     )
   else
-    hunk.added.lines = api.nvim_buf_get_lines(self.bufnr, top - 1, bot, false)
+    hunk.added.lines = vim.list_slice(
+      util.buf_lines(self.bufnr),
+      top,
+      math.min(bot, api.nvim_buf_line_count(self.bufnr))
+    )
     hunk.removed.lines =
       vim.list_slice(compare_text, hunk.removed.start, hunk.removed.start + hunk.removed.count - 1)
   end
